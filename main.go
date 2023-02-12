@@ -71,6 +71,7 @@ var prog string = path.Base(os.Args[0])
 
 func printCommandList() {
 	fmt.Fprintf(os.Stderr, "  %8s psg compress\tcompresses a PSG file\n", prog)
+	fmt.Fprintf(os.Stderr, "  %8s psg decompress\tdecompresses a PSG file\n", prog)
 	fmt.Fprintf(os.Stderr, "  %8s psg debug\tprints debug information about a PSG file\n", prog)
 	fmt.Fprintf(os.Stderr, "\nRun %s (command) --help for more information\n", prog)
 }
@@ -86,7 +87,7 @@ func main() {
 	case "psg compress":
 		args := flag.NewFlagSet(fmt.Sprintf("%s %s", prog, cmd), flag.ContinueOnError)
 		verbose := args.BoolP("verbose", "v", false, "logs debug information")
-		in := args.StringP("input", "i", "", "the PSG file to analyze, or \"-\" to read from standard input")
+		in := args.StringP("input", "i", "", "the PSG file to compress, or \"-\" to read from standard input")
 		out := args.StringP("output", "o", "", "the path of the compressed PSG file to generate, or \"-\" to write to standard output")
 		err := args.Parse(os.Args[3:])
 		if err == flag.ErrHelp {
@@ -96,6 +97,17 @@ func main() {
 		src := getInReader(*in, args.Arg(0))
 		dst := getOutWriter((*out), args.Arg(1))
 		psg.Compress(src, dst)
+	case "psg decompress":
+		args := flag.NewFlagSet(fmt.Sprintf("%s %s", prog, cmd), flag.ContinueOnError)
+		in := args.StringP("input", "i", "", "the PSG file to decompress, or \"-\" to read from standard input")
+		out := args.StringP("output", "o", "", "the path of the decompressed PSG file to generate, or \"-\" to write to standard output")
+		err := args.Parse(os.Args[3:])
+		if err == flag.ErrHelp {
+			os.Exit(1)
+		}
+		src := getInReader(*in, args.Arg(0))
+		dst := getOutWriter((*out), args.Arg(1))
+		psg.Decompress(src, dst)
 	case "psg debug":
 		args := flag.NewFlagSet(fmt.Sprintf("%s %s", prog, cmd), flag.ContinueOnError)
 		verbose := args.BoolP("verbose", "v", false, "logs debug information")
