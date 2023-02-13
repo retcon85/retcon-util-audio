@@ -110,15 +110,15 @@ func main() {
 		psg.Decompress(src, dst)
 	case "psg debug":
 		args := flag.NewFlagSet(fmt.Sprintf("%s %s", prog, cmd), flag.ContinueOnError)
-		verbose := args.BoolP("verbose", "v", false, "logs debug information")
 		in := args.StringP("input", "i", "", "the PSG file to analyze, or \"-\" to read from standard input")
+		printOffset := args.BoolP("print-offset", "a", true, "prints the start address of each decoded line")
+		printBytes := args.BoolP("print-bytes", "b", true, "prints the byte data for each decoded line")
 		err := args.Parse(os.Args[3:])
 		if err == flag.ErrHelp {
 			os.Exit(1)
 		}
-		handleVerbose(*verbose)
 		src := getInReader(*in, args.Arg(0))
-		psg.Debug(src, os.Stdout)
+		psg.Debug(src, os.Stdout, psg.DebugOptions{PrintOffset: *printOffset, PrintBytes: *printBytes})
 	default:
 		args := flag.NewFlagSet(prog, flag.ContinueOnError)
 		err := args.Parse(os.Args[1:])
