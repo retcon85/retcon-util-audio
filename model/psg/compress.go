@@ -45,8 +45,10 @@ func Compress(src io.Reader, dst io.Writer) {
 						}
 						if !skip {
 							foundAt = append(foundAt, from+at)
+							from += at + len(needle)
+						} else {
+							from += at + 1
 						}
-						from += at + len(needle)
 					}
 					if len(foundAt) == 0 {
 						break
