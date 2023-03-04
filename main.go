@@ -113,12 +113,13 @@ func main() {
 		in := args.StringP("input", "i", "", "the PSG file to analyze, or \"-\" to read from standard input")
 		printOffset := args.BoolP("print-offset", "a", true, "prints the start address of each decoded line")
 		printBytes := args.BoolP("print-bytes", "b", true, "prints the byte data for each decoded line")
+		showFrames := args.BoolP("show-frames", "f", true, "indicates where new frames begin (after wait commands)")
 		err := args.Parse(os.Args[3:])
 		if err == flag.ErrHelp {
 			os.Exit(1)
 		}
 		src := getInReader(*in, args.Arg(0))
-		psg.Debug(src, os.Stdout, psg.DebugOptions{PrintOffset: *printOffset, PrintBytes: *printBytes})
+		psg.Debug(src, os.Stdout, psg.DebugOptions{PrintOffset: *printOffset, PrintBytes: *printBytes, ShowFrames: *showFrames})
 	default:
 		args := flag.NewFlagSet(prog, flag.ContinueOnError)
 		err := args.Parse(os.Args[1:])
