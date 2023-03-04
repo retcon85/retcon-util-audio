@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strings"
 )
 
 const (
@@ -15,61 +16,64 @@ const (
 type DebugOptions struct {
 	PrintOffset bool
 	PrintBytes  bool
+	ShowFrames  bool
 }
 
-func write(w io.Writer, off int, b []byte, data_byte bool, msg string, opt DebugOptions) {
-	data_str := "    "
-	if data_byte {
-		data_str = "  * "
-	}
+func write(w io.Writer, off int, b []byte, latch bool, msg string, opt DebugOptions) {
 	if opt.PrintOffset {
-		fmt.Fprintf(w, "%.4x:\t", off)
+		fmt.Fprintf(w, "%.4x:    ", off)
+	}
+	if latch {
+		fmt.Fprintf(w, "* ")
+	} else {
+		fmt.Fprintf(w, "  ")
 	}
 	if opt.PrintBytes {
-		fmt.Fprintf(w, "%- #12x\t", b)
+		fmt.Fprintf(w, "%- #15x", b)
 	}
-	fmt.Fprintf(w, "%s%s\n", data_str, msg)
+	fmt.Fprintln(w, msg)
 }
 
-func log2ByteCommand(w io.Writer, off int, b1 byte, b2 byte, data_byte bool, opt DebugOptions) {
-	b := b1
-	if data_byte {
-		b = b2
-	}
+func logRegisterChange(w io.Writer, off int, b byte, reg int, val int, opt DebugOptions) {
+	latch := b&0x80 > 0
 	switch {
-	case b1&(0x80|0x10) == 0x80|0x10:
-		b1 |= (b2 & 0x0f)
-		ch := (b1 >> 5) & 0x03
-		write(w, off, []byte{b}, data_byte, fmt.Sprintf("channel %d attenuation => %2d", ch, b1&0x0f), opt)
-	case b1&(0x80|0x60) == 0x80|0x60:
-		b1 |= (b2 & 0x0f)
-		var fb, nf string
-		if b1&(0x04) > 0 {
-			fb = "white noise   "
+	case reg&1 > 0:
+		ch := (val >> 5) & 0x03
+		attn := val & 0x0f
+		if attn == 15 {
+			write(w, off, []byte{b}, latch, fmt.Sprintf("channel %d attenuation => %5d (silent)", ch, attn), opt)
 		} else {
-			fb = "periodic noise"
+			db := int(attn) * 2
+			write(w, off, []byte{b}, latch, fmt.Sprintf("channel %d attenuation => %5d (%3d db)", ch, attn, db), opt)
 		}
-		switch b1 & 0x3 {
+	case reg&0x6 == 0x6:
+		var fb, nf string
+		if val&(0x04) > 0 {
+			fb = "white   "
+		} else {
+			fb = "periodic"
+		}
+		switch val & 0x3 {
 		case 0:
-			nf = "[clk/2]"
+			nf = "ϕ/2"
 		case 1:
-			nf = "[clk/4]"
+			nf = "ϕ/4"
 		case 2:
-			nf = "[clk/8]"
+			nf = "ϕ/8"
 		case 3:
-			nf = "[channel 2]"
+			nf = "ch 2 freq"
 		}
-		write(w, off, []byte{b}, data_byte, fmt.Sprintf("play %s    with frequency %18s", fb, nf), opt)
-	case b1&0x80 == 0x80:
-		ch := (b1 >> 5) & 0x03
-		f := int(b2&0x3f)<<4 + int(b1&0x0f)
+		write(w, off, []byte{b}, latch, fmt.Sprintf("noise                 => %s @ %s", fb, nf), opt)
+	default:
+		ch := reg >> 1
+		f := val & 0x3ff
 		hz := NTSC_CLK / (32 * float32(f))
 		hzk := " "
 		if hz >= 1000 {
 			hz /= 1000
 			hzk = "k"
 		}
-		write(w, off, []byte{b}, data_byte, fmt.Sprintf("play tone on channel %d with frequency %5d (%6.2f %sHz)", ch, f, hz, hzk), opt)
+		write(w, off, []byte{b}, latch, fmt.Sprintf("channel %d tone        => %5d (%6.2f %sHz)", ch, f, hz, hzk), opt)
 	}
 }
 
@@ -79,7 +83,8 @@ func Debug(src io.Reader, dst io.Writer, opt DebugOptions) error {
 	buf := s.Bytes()
 	s = bytes.NewBuffer(buf)
 	off := -1
-	var b1, b2 byte
+	var regs [8]int
+	reg := 0
 	for {
 		b, err := s.ReadByte()
 		off++
@@ -91,18 +96,26 @@ func Debug(src io.Reader, dst io.Writer, opt DebugOptions) error {
 
 		switch {
 		case b&0x80 == 0x80:
-			b1 = b
-			log2ByteCommand(dst, off, b1, b2, false, opt)
+			reg = int((b >> 4) & 0x7)
+			regs[reg] = (regs[reg] &^ 0x00f) | int(b&0x0f)
+			logRegisterChange(dst, off, b, reg, regs[reg], opt)
 		case b&0x40 == 0x40:
-			b2 = b
-			log2ByteCommand(dst, off, b1, b2, true, opt)
+			regs[reg] = (regs[reg] & 0x00f) | int(b)<<4
+			logRegisterChange(dst, off, b, reg, regs[reg], opt)
 		case b&0x38 == 0x38:
 			delay := b & 0x07
 			pl := "s"
 			if delay == 1 {
-				pl = ""
+				pl = " "
 			}
-			write(dst, off, []byte{b}, false, fmt.Sprintf("wait for %d frame%s", delay, pl), opt)
+			if opt.ShowFrames {
+				for i := 0; i <= int(delay); i++ {
+					ln := strings.Repeat("-", 25)
+					fmt.Fprintf(dst, "%s wait for %2d frame%s (%d of %d) %s\n", ln, delay, pl, i, delay, ln)
+				}
+			} else {
+				write(dst, off, []byte{b}, false, fmt.Sprintf("wait for %d frame%s", delay, pl), opt)
+			}
 		case b == 0:
 			write(dst, off, []byte{b}, false, "end of file", opt)
 		case b == 1:
@@ -124,7 +137,7 @@ func Debug(src io.Reader, dst io.Writer, opt DebugOptions) error {
 			}
 			from := binary.LittleEndian.Uint16(vec)
 			to := from + size
-			write(dst, off, []byte{b, vec[0], vec[1]}, false, fmt.Sprintf("repeat block from %.4x:%.4x (%d bytes <= % x)", from, to, size, buf[from:to]), opt)
+			write(dst, off, []byte{b, vec[0], vec[1]}, false, fmt.Sprintf("repeat block from %.4x:%.4x (%d bytes)", from, to, size), opt)
 			off += 2
 		}
 	}
