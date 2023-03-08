@@ -3,11 +3,11 @@ package psg
 import (
 	"encoding/binary"
 
-	"github.com/retcon85/retcon-util-audio/cli"
+	"github.com/willbritton/gocli"
 )
 
-var log = cli.Log
-var dbg = cli.Dbg
+var log = gocli.Log
+var dbg = gocli.Dbg
 
 const (
 	MIN = 4
