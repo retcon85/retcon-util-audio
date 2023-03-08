@@ -10,13 +10,13 @@ type Logger struct {
 	verbose bool
 }
 
-func makeDefault() *Logger {
+func NewLogger() *Logger {
 	l := &Logger{base: log.Default()}
 	l.base.SetFlags(0)
 	return l
 }
 
-var logger *Logger = makeDefault()
+var logger *Logger = NewLogger()
 
 func DefaultLogger() *Logger {
 	return logger

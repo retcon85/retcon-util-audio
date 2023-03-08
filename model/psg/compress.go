@@ -10,7 +10,7 @@ func Compress(src io.Reader, dst io.Writer) {
 	buf.ReadFrom(src)
 	s := buf.Bytes()
 
-	l.Printf("uncompressed file size = %d bytes\n", len(s))
+	log.Printf("uncompressed file size : %d bytes\n", len(s))
 
 	blkmap := make([]*Block, len(s)) // holds an image of the input file, to keep track of already converted blocks
 	blks := make([]*Block, 0)        // holds a simple list of all known blocks
@@ -62,12 +62,12 @@ func Compress(src io.Reader, dst io.Writer) {
 				}
 			}
 		}
-		l.Printf("found %d repeated blocks\n", len(dict))
+		dbg.Printf("found %d repeated blocks\n", len(dict))
 		if best.Score() <= 0 {
-			l.Println("finishing")
+			dbg.Println("finishing")
 			break
 		}
-		l.Printf("best block is at %.4x, length %d with score %d (%x)\n", best.Start, best.Len, best.Score(), best.Bytes)
+		dbg.Printf("best block is at %.4x, length %d with score %d (%x)\n", best.Start, best.Len, best.Score(), best.Bytes)
 		// we are going to do some replacements with our winning block - update blks and blkmap to protect the block from future updates
 		blks = append(blks, &best)
 		for i := best.Start; i < best.Start+best.Len; i++ {
@@ -76,7 +76,7 @@ func Compress(src io.Reader, dst io.Writer) {
 		// phase 2 - now action all the replacements we noted we could make with the block
 		for _, at := range best.At {
 			skipped := best.Len - 3
-			l.Printf("replacing block of %d bytes at %.4x with vector to %.4x, saving %d bytes (%x)\n", best.Len, at, best.Start, skipped, best.Bytes)
+			dbg.Printf("replacing block of %d bytes at %.4x with vector to %.4x, saving %d bytes (%x)\n", best.Len, at, best.Start, skipped, best.Bytes)
 			copy(s[at:], best.Encode())
 			s = append(s[:at+3], s[at+best.Len:]...)
 			copy(blkmap[at:], []*Block{&best, &best, &best})
@@ -93,7 +93,7 @@ func Compress(src io.Reader, dst io.Writer) {
 						blk.At[i] -= skipped
 					}
 					if rebased {
-						l.Printf("correcting vector at %.4x from %x to %x as target moved\n", blk.At[i], s[blk.At[i]:blk.At[i]+3], blk.Encode())
+						dbg.Printf("correcting vector at %.4x from %x to %x as target moved\n", blk.At[i], s[blk.At[i]:blk.At[i]+3], blk.Encode())
 						copy(s[blk.At[i]:], blk.Encode())
 					}
 				}
@@ -101,7 +101,7 @@ func Compress(src io.Reader, dst io.Writer) {
 		}
 	}
 
-	l.Printf("compressed file size = %d bytes\n", len(s))
+	log.Printf("compressed file size   : %d bytes\n\n", len(s))
 
 	dst.Write(s)
 }

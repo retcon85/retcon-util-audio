@@ -3,10 +3,11 @@ package psg
 import (
 	"encoding/binary"
 
-	"github.com/retcon85/retcon-util-audio/logger"
+	"github.com/retcon85/retcon-util-audio/cli"
 )
 
-var l = logger.DefaultLogger()
+var log = cli.Log
+var dbg = cli.Dbg
 
 const (
 	MIN = 4
