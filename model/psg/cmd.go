@@ -60,7 +60,9 @@ var Cmd = gocli.Command{
 			*save = posArgs[1]
 		}
 
-		src := getInReader(*load)
+		// buffer the input in case load and save point to the same file
+		src := new(bytes.Buffer)
+		src.ReadFrom(getInReader(*load))
 		dst := getOutWriter(*save)
 
 		switch {
