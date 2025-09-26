@@ -75,10 +75,11 @@ var Cmd = gocli.Command{
 				Compress(buf, dst)
 			}
 		case (*format)[:5] == "debug":
+			dbgFmt := (*format)[5:]
 			Debug(src, dst, DebugOptions{
-				PrintOffset: strings.ContainsAny(*format, "o*"),
-				PrintBytes:  strings.ContainsAny(*format, "b*"),
-				ShowFrames:  strings.ContainsAny(*format, "f*"),
+				PrintOffset: strings.ContainsAny(dbgFmt, "o*"),
+				PrintBytes:  strings.ContainsAny(dbgFmt, "b*"),
+				ShowFrames:  strings.ContainsAny(dbgFmt, "f*"),
 			})
 		default:
 			return handleError(args, fmt.Errorf("unrecognised output format '%s'", *format))
