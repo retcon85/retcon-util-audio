@@ -38,7 +38,7 @@ func logRegisterChange(w io.Writer, off int, b byte, reg int, val int, opt Debug
 	latch := b&0x80 > 0
 	switch {
 	case reg&1 > 0:
-		ch := (val >> 5) & 0x03
+		ch := reg >> 1
 		attn := val & 0x0f
 		if attn == 15 {
 			write(w, off, []byte{b}, latch, fmt.Sprintf("channel %d attenuation => %5d (silent)", ch, attn), opt)
